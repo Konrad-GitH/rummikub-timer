@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Rummikub Timer</title>
+<style>
+  html,body{margin:0;height:100%;background:#111;color:#fff;font-family:-apple-system,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  #b{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:background .2s}
+  #t{font-size:38vw;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  #h{opacity:.6;font-size:5vw;margin-top:2vh}
+  .warn{background:#b35900!important}
+  .end{background:#a00!important}
+</style>
+</head>
+<body>
+<div id="b"><div id="t">30</div><div id="h">Dotknij, aby zacząć / zresetować</div></div>
+<script>
+const D=30, t=document.getElementById('t'), b=document.getElementById('b');
+let end=0, run=false, ac, lastShown=D, wl;
+function beep(f,d){
+  try{
+    ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.frequency.value=f; o.connect(g); g.connect(ac.destination);
+    g.gain.value=.3; o.start(); o.stop(ac.currentTime+d);
+  }catch(e){}
+}
+async function lock(){ try{ wl=await navigator.wakeLock.request('screen'); }catch(e){} }
+function start(){
+  run=true; end=performance.now()+D*1000; lastShown=D+1;
+  b.className=''; t.textContent=D;
+  if(ac&&ac.state==='suspended') ac.resume();
+  lock();
+}
+function tick(){
+  if(run){
+    const left=Math.max(0,Math.ceil((end-performance.now())/1000));
+    if(left!==lastShown){
+      lastShown=left; t.textContent=left;
+      if(left<=5&&left>0) beep(880,.1);
+      if(left===0){ beep(440,.8); if(navigator.vibrate) navigator.vibrate(500); }
+    }
+    b.className = left===0 ? 'end' : left<=10 ? 'warn' : '';
+    if(left===0) run=false;
+  }
+  requestAnimationFrame(tick);
+}
+document.addEventListener('pointerdown',start);
+document.addEventListener('visibilitychange',()=>{ if(run&&document.visibilityState==='visible') lock(); });
+tick();
+</script>
+</body>
+</html>
