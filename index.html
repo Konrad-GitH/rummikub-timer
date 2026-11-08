@@ -8,18 +8,44 @@
 <style>
   html,body{margin:0;height:100%;background:#111;color:#fff;font-family:-apple-system,sans-serif;
     -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  [hidden]{display:none!important}
+  #setup{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;box-sizing:border-box}
+  #setup h1{margin:0 0 8px;font-size:8vw}
+  #setup input{width:100%;max-width:420px;font-size:22px;padding:14px;border-radius:12px;border:1px solid #444;background:#222;color:#fff;box-sizing:border-box;-webkit-user-select:text;user-select:text}
+  #go{width:100%;max-width:420px;font-size:24px;font-weight:700;padding:16px;border:0;border-radius:12px;background:#2a9d4a;color:#fff}
+  #hint{opacity:.6;font-size:15px}
+  #game{position:fixed;inset:0}
   #b{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:background .2s}
-  #t{font-size:38vw;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
-  #h{opacity:.6;font-size:5vw;margin-top:2vh}
+  #n{font-size:11vw;font-weight:700;margin-bottom:2vh;max-width:90%;text-align:center;overflow-wrap:anywhere}
+  #t{font-size:36vw;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  #h{opacity:.6;font-size:4.5vw;margin-top:2vh}
+  #back{position:absolute;top:max(12px,env(safe-area-inset-top));right:12px;font-size:16px;padding:10px 14px;border-radius:10px;border:1px solid #555;background:rgba(0,0,0,.35);color:#fff}
   .warn{background:#b35900!important}
   .end{background:#a00!important}
 </style>
 </head>
 <body>
-<div id="b"><div id="t">30</div><div id="h">Dotknij, aby zacząć / zresetować</div></div>
+<div id="setup">
+  <h1>Gracze</h1>
+  <input id="p0" placeholder="Gracz 1" maxlength="20">
+  <input id="p1" placeholder="Gracz 2" maxlength="20">
+  <input id="p2" placeholder="Gracz 3 (opcjonalnie)" maxlength="20">
+  <input id="p3" placeholder="Gracz 4 (opcjonalnie)" maxlength="20">
+  <button id="go">Start</button>
+  <div id="hint">Wpisz od 2 do 4 imion</div>
+</div>
+<div id="game" hidden>
+  <button id="back">Zmień graczy</button>
+  <div id="b"><div id="n"></div><div id="t">30</div><div id="h">Dotknij = następny gracz</div></div>
+</div>
 <script>
-const D=30, t=document.getElementById('t'), b=document.getElementById('b');
-let end=0, run=false, ac, lastShown=D, wl;
+const D=30, t=document.getElementById('t'), b=document.getElementById('b'), n=document.getElementById('n');
+const setup=document.getElementById('setup'), game=document.getElementById('game');
+const inputs=[0,1,2,3].map(i=>document.getElementById('p'+i));
+let players=[], cur=0, end=0, run=false, ac, lastShown=D, wl;
+
+try{ (JSON.parse(localStorage.getItem('rk_names')||'[]')).forEach((v,i)=>{ if(inputs[i]) inputs[i].value=v; }); }catch(e){}
+
 function beep(f,d){
   try{
     ac=ac||new (window.AudioContext||window.webkitAudioContext)();
@@ -29,12 +55,29 @@ function beep(f,d){
   }catch(e){}
 }
 async function lock(){ try{ wl=await navigator.wakeLock.request('screen'); }catch(e){} }
-function start(){
+
+function begin(){
   run=true; end=performance.now()+D*1000; lastShown=D+1;
-  b.className=''; t.textContent=D;
+  n.textContent=players[cur]; t.textContent=D; b.className='';
   if(ac&&ac.state==='suspended') ac.resume();
   lock();
 }
+function next(){ cur=(cur+1)%players.length; begin(); }
+
+document.getElementById('go').addEventListener('click',()=>{
+  const names=inputs.map(i=>i.value.trim()).filter(Boolean);
+  if(names.length<2){ alert('Wpisz co najmniej 2 imiona'); return; }
+  players=names; cur=0;
+  try{ localStorage.setItem('rk_names',JSON.stringify(inputs.map(i=>i.value.trim()))); }catch(e){}
+  beep(1,.01);
+  setup.hidden=true; game.hidden=false;
+  begin();
+});
+document.getElementById('back').addEventListener('pointerdown',e=>{
+  e.stopPropagation(); run=false; game.hidden=true; setup.hidden=false;
+});
+game.addEventListener('pointerdown',next);
+
 function tick(){
   if(run){
     const left=Math.max(0,Math.ceil((end-performance.now())/1000));
@@ -48,7 +91,6 @@ function tick(){
   }
   requestAnimationFrame(tick);
 }
-document.addEventListener('pointerdown',start);
 document.addEventListener('visibilitychange',()=>{ if(run&&document.visibilityState==='visible') lock(); });
 tick();
 </script>
